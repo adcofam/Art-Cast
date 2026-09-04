@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Weather, Painted</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="art-bg"><img id="art-img" alt="" /></div>
+
+  <!-- shown only if geolocation is denied/unavailable -->
+  <div id="city-search" class="hidden">
+    <form id="city-form">
+      <input id="city-input" type="text" placeholder="Enter a city (e.g. Brooklyn)" autocomplete="off" />
+      <button type="submit">Go</button>
+    </form>
+  </div>
+
+  <main id="overlay">
+    <div id="status-msg" class="hidden"></div>
+    <div id="weather-line">
+      <span id="temp">--°</span>
+      <span id="condition">—</span>
+      <span id="place"></span>
+    </div>
+    <div id="caption">
+      <span id="art-title"></span> — <span id="art-artist"></span> <span id="art-year"></span>
+    </div>
+    <button id="shuffle-btn" class="hidden">Shuffle painting ⟲</button>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

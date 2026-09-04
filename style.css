@@ -1,0 +1,123 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: #111;
+  color: #fff;
+  overflow: hidden;
+}
+
+/* full-bleed painting background */
+#art-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: #111;
+}
+#art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 0.6s ease-in-out;
+}
+#art-img.loaded { opacity: 1; }
+
+/* dark gradient only at bottom so text never fights the art */
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 6vh 5vw;
+  background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 40%, transparent 70%);
+  pointer-events: none; /* let clicks pass through except on real controls */
+}
+#overlay * { pointer-events: auto; }
+
+#weather-line {
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 300;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+}
+#temp { font-weight: 600; }
+#condition { text-transform: capitalize; opacity: 0.85; }
+#place { font-size: 0.4em; opacity: 0.65; margin-left: 0.4rem; }
+
+#caption {
+  margin-top: 0.6rem;
+  font-size: 0.95rem;
+  font-style: italic;
+  opacity: 0.8;
+  max-width: 60ch;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+}
+
+#shuffle-btn {
+  margin-top: 1.2rem;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.35);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+#shuffle-btn:hover { background: rgba(255,255,255,0.25); }
+
+#status-msg {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  margin-bottom: 0.5rem;
+}
+
+.hidden { display: none !important; }
+
+/* manual city search, centered modal-style */
+#city-search {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.65);
+}
+#city-form {
+  display: flex;
+  gap: 0.5rem;
+  background: #1c1c1c;
+  padding: 1.2rem;
+  border-radius: 12px;
+}
+#city-input {
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 1rem;
+  width: 220px;
+}
+#city-form button {
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  border: none;
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  #overlay { padding: 5vh 6vw; }
+  #caption { max-width: 42ch; }
+}
