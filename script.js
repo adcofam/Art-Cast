@@ -15,12 +15,16 @@ const cityInput    = document.getElementById('city-input');
 
 // ---------- curated painting search terms per weather bucket ----------
 const PAINTING_TERMS = {
-  sunny:  ['sunflowers', 'sunny landscape', 'summer field', 'harvest sunlight', 'golden hour'],
-  cloudy: ['overcast sky', 'gray landscape', 'misty morning', 'cloudy countryside', 'fog'],
-  rainy:  ['rainy street', 'rain landscape', 'umbrella rain', 'wet pavement', 'storm at sea'],
-  snowy:  ['winter snow', 'snowy village', 'frozen river', 'snow landscape', 'winter forest'],
-  stormy: ['storm at sea', 'shipwreck', 'thunderstorm', 'tempest', 'dark storm clouds'],
+  sunny:  ['sunflowers', 'sunny landscape', 'summer field', 'harvest sunlight', 'golden hour landscape'],
+  cloudy: ['overcast sky landscape', 'gray landscape', 'misty morning landscape', 'cloudy countryside', 'fog landscape'],
+  rainy:  ['rainy street', 'rain landscape', 'umbrella in rain', 'wet pavement street', 'storm at sea'],
+  snowy:  ['winter snow landscape', 'snowy village', 'frozen river landscape', 'snow landscape', 'winter forest'],
+  stormy: ['storm at sea', 'shipwreck storm', 'thunderstorm landscape', 'tempest sea', 'dark storm clouds landscape'],
 };
+
+// departments where weather/landscape scenes actually live —
+// keeps Egyptian reliefs, arms & armor, musical instruments, etc. out of results
+const LANDSCAPE_DEPARTMENTS = [11, 21, 6, 9]; // European Paintings, Modern Art, Asian Art, Drawings & Prints
 
 // used only if BOTH the search call and the image itself fail — pure CSS, can't break
 const FALLBACK_GRADIENTS = {
@@ -42,6 +46,15 @@ function codeToCondition(code) {
   if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snowy';
   if ([95, 96, 99].includes(code)) return 'stormy';
   return 'cloudy';
+}
+
+// only accept actual 2D painted/printed/drawn works — filters out sculpture,
+// reliefs, stelae, instruments, armor, etc. that can slip in via loose text search
+function isPaintingLike(obj) {
+  const cls = (obj.classification || '').toLowerCase();
+  const medium = (obj.medium || '').toLowerCase();
+  const keywords = ['painting', 'watercolor', 'print', 'drawing', 'oil on canvas', 'canvas'];
+  return keywords.some(k => cls.includes(k) || medium.includes(k));
 }
 
 // ---------- init ----------
@@ -118,32 +131,38 @@ async function runPipeline(lat, lon, placeName) {
 async function loadPainting(condition) {
   const terms = PAINTING_TERMS[condition] || PAINTING_TERMS.cloudy;
   const term = terms[Math.floor(Math.random() * terms.length)];
+  const dept = LANDSCAPE_DEPARTMENTS[Math.floor(Math.random() * LANDSCAPE_DEPARTMENTS.length)];
 
   try {
-    const searchUrl = `${MET_BASE}/search?q=${encodeURIComponent(term)}&hasImages=true`;
-    const res = await fetch(searchUrl);
+    const searchUrl = `${MET_BASE}/search?q=${encodeURIComponent(term)}&hasImages=true&departmentId=${dept}`;
+    let res = await fetch(searchUrl);
     if (!res.ok) throw new Error(`Search failed: ${res.status}`);
-    const data = await res.json();
+    let data = await res.json();
+    let ids = data.objectIDs;
 
-    const ids = data.objectIDs;
+    // department filter can over-narrow some terms to zero results — retry without it once
+    if (!ids || !ids.length) {
+      res = await fetch(`${MET_BASE}/search?q=${encodeURIComponent(term)}&hasImages=true`);
+      if (!res.ok) throw new Error(`Fallback search failed: ${res.status}`);
+      data = await res.json();
+      ids = data.objectIDs;
+    }
     if (!ids || !ids.length) throw new Error('No results for term: ' + term);
 
-    // hasImages=true can still include a few objects with no primaryImage,
-    // so try several random candidates before giving up
-    const shuffled = [...ids].sort(() => Math.random() - 0.5).slice(0, 8);
+    const shuffled = [...ids].sort(() => Math.random() - 0.5).slice(0, 12);
     let found = false;
 
     for (const id of shuffled) {
       const objRes = await fetch(`${MET_BASE}/objects/${id}`);
       if (!objRes.ok) continue;
       const obj = await objRes.json();
-      if (obj.primaryImage) {
+      if (obj.primaryImage && isPaintingLike(obj)) {
         renderArt(obj.primaryImage, obj.title, obj.artistDisplayName, obj.objectDate, condition);
         found = true;
         break;
       }
     }
-    if (!found) throw new Error('No candidate had a usable image');
+    if (!found) throw new Error('No painting-classified candidate with image');
   } catch (err) {
     console.error('loadPainting failed:', err);
     showFallbackGradient(condition);
