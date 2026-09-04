@@ -1,5 +1,6 @@
 // ---------- DOM refs ----------
 const artImg      = document.getElementById('art-img');
+const artBg        = document.getElementById('art-bg');
 const tempEl       = document.getElementById('temp');
 const condEl       = document.getElementById('condition');
 const placeEl      = document.getElementById('place');
@@ -21,7 +22,8 @@ const PAINTING_TERMS = {
   stormy: ['storm at sea', 'shipwreck', 'thunderstorm', 'tempest', 'dark storm clouds'],
 };
 
-// hardcoded last-resort fallback (public domain, known-good AIC image_id)
+// used only if BOTH the search call and the image itself fail —
+// pure CSS, so it can never 404 or break
 const FALLBACK_GRADIENTS = {
   sunny:  'linear-gradient(160deg, #f6d365, #fda085)',
   cloudy: 'linear-gradient(160deg, #757f9a, #d7dde8)',
@@ -30,12 +32,9 @@ const FALLBACK_GRADIENTS = {
   stormy: 'linear-gradient(160deg, #2c3e50, #4b6cb7)',
 };
 
-let currentCondition = 'cloudy'; // used by shuffle button
+let currentCondition = 'cloudy'; // drives shuffle + fallback color
 
 // ---------- weathercode -> bucket ----------
-// WMO codes per Open-Meteo docs: 0 clear; 1-3 cloudy; 45/48 fog;
-// 51-67 drizzle/rain; 71-75 snow; 77 snow grains; 80-82 rain showers;
-// 85-86 snow showers; 95-99 thunderstorm.
 function codeToCondition(code) {
   if ([0].includes(code)) return 'sunny';
   if ([1, 2, 3, 45, 48].includes(code)) return 'cloudy';
@@ -131,34 +130,36 @@ async function loadPainting(condition) {
     if (!candidates.length) throw new Error('No image results');
 
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    renderArt(pick.image_id, pick.title, pick.artist_display, pick.date_display);
+    renderArt(pick.image_id, pick.title, pick.artist_display, pick.date_display, condition);
   } catch (err) {
-    renderArt(FALLBACK_ART.image_id, FALLBACK_ART.title, FALLBACK_ART.artist, FALLBACK_ART.year);
+    showFallbackGradient(condition);
   }
 }
 
-function renderArt(imageId, title, artist, year) {
+// image_id -> real painting, with graceful degrade to a gradient if the image itself 404s
+function renderArt(imageId, title, artist, year, condition) {
   const src = `https://www.artic.edu/iiif/2/${imageId}/full/843,/0/default.jpg`;
-  artImg.classList.remove('loaded');
 
   const preload = new Image();
   preload.onload = () => {
     artImg.src = src;
-    document.getElementById('art-bg').style.background = '';
     artImg.style.display = 'block';
+    artBg.style.background = '#111';
     artImg.classList.add('loaded');
     titleEl.textContent = title || 'Untitled';
     artistEl.textContent = (artist || 'Unknown artist').split('\n')[0];
     yearEl.textContent = year ? `(${year})` : '';
   };
-  preload.onerror = () => {
-    // guaranteed-to-work fallback: solid gradient, no external image
-    artImg.style.display = 'none';
-    document.getElementById('art-bg').style.background = FALLBACK_GRADIENTS[currentCondition] || FALLBACK_GRADIENTS.cloudy;
-    titleEl.textContent = 'Artwork unavailable';
-    artistEl.textContent = 'Showing a placeholder scene';
-    yearEl.textContent = '';
-  };
+  preload.onerror = () => showFallbackGradient(condition);
   preload.src = src;
 }
 
+// pure-CSS fallback, cannot fail
+function showFallbackGradient(condition) {
+  artImg.classList.remove('loaded');
+  artImg.style.display = 'none';
+  artBg.style.background = FALLBACK_GRADIENTS[condition] || FALLBACK_GRADIENTS.cloudy;
+  titleEl.textContent = 'Artwork unavailable';
+  artistEl.textContent = 'Showing a placeholder scene';
+  yearEl.textContent = '';
+}
