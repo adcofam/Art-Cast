@@ -22,11 +22,12 @@ const PAINTING_TERMS = {
 };
 
 // hardcoded last-resort fallback (public domain, known-good AIC image_id)
-const FALLBACK_ART = {
-  title: 'The Great Wave off Kanagawa',
-  artist: 'Katsushika Hokusai',
-  year: 'c. 1830–33',
-  image_id: '76a2694a-6ba0-c00b-3a0c-72fefa76f8e5', // AIC record for this print
+const FALLBACK_GRADIENTS = {
+  sunny:  'linear-gradient(160deg, #f6d365, #fda085)',
+  cloudy: 'linear-gradient(160deg, #757f9a, #d7dde8)',
+  rainy:  'linear-gradient(160deg, #4b6cb7, #182848)',
+  snowy:  'linear-gradient(160deg, #e6e9f0, #a5b4c6)',
+  stormy: 'linear-gradient(160deg, #2c3e50, #4b6cb7)',
 };
 
 let currentCondition = 'cloudy'; // used by shuffle button
@@ -143,17 +144,21 @@ function renderArt(imageId, title, artist, year) {
   const preload = new Image();
   preload.onload = () => {
     artImg.src = src;
+    document.getElementById('art-bg').style.background = '';
+    artImg.style.display = 'block';
     artImg.classList.add('loaded');
+    titleEl.textContent = title || 'Untitled';
+    artistEl.textContent = (artist || 'Unknown artist').split('\n')[0];
+    yearEl.textContent = year ? `(${year})` : '';
   };
   preload.onerror = () => {
-    // image itself failed to load — fall back to hardcoded piece if not already showing it
-    if (imageId !== FALLBACK_ART.image_id) {
-      renderArt(FALLBACK_ART.image_id, FALLBACK_ART.title, FALLBACK_ART.artist, FALLBACK_ART.year);
-    }
+    // guaranteed-to-work fallback: solid gradient, no external image
+    artImg.style.display = 'none';
+    document.getElementById('art-bg').style.background = FALLBACK_GRADIENTS[currentCondition] || FALLBACK_GRADIENTS.cloudy;
+    titleEl.textContent = 'Artwork unavailable';
+    artistEl.textContent = 'Showing a placeholder scene';
+    yearEl.textContent = '';
   };
   preload.src = src;
-
-  titleEl.textContent = title || 'Untitled';
-  artistEl.textContent = (artist || 'Unknown artist').split('\n')[0];
-  yearEl.textContent = year ? `(${year})` : '';
 }
+
