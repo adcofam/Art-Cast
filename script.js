@@ -137,7 +137,7 @@ async function loadPainting(condition) {
 }
 
 function renderArt(imageId, title, artist, year) {
-  const src = `https://www.artic.edu/iiif/2/${imageId}/full/1200,/0/default.jpg`;
+  const src = `https://www.artic.edu/iiif/2/${imageId}/full/843,/0/default.jpg`;
   artImg.classList.remove('loaded');
 
   const preload = new Image();
