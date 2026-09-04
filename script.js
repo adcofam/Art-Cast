@@ -22,8 +22,7 @@ const PAINTING_TERMS = {
   stormy: ['storm at sea', 'shipwreck', 'thunderstorm', 'tempest', 'dark storm clouds'],
 };
 
-// used only if BOTH the search call and the image itself fail —
-// pure CSS, so it can never 404 or break
+// used only if BOTH the search call and the image itself fail — pure CSS, can't break
 const FALLBACK_GRADIENTS = {
   sunny:  'linear-gradient(160deg, #f6d365, #fda085)',
   cloudy: 'linear-gradient(160deg, #757f9a, #d7dde8)',
@@ -32,6 +31,7 @@ const FALLBACK_GRADIENTS = {
   stormy: 'linear-gradient(160deg, #2c3e50, #4b6cb7)',
 };
 
+const MET_BASE = 'https://collectionapi.metmuseum.org/public/collection/v1';
 let currentCondition = 'cloudy'; // drives shuffle + fallback color
 
 // ---------- weathercode -> bucket ----------
@@ -114,51 +114,59 @@ async function runPipeline(lat, lon, placeName) {
   }
 }
 
-// ---------- painting lookup ----------
+// ---------- painting lookup: The Met Collection API ----------
 async function loadPainting(condition) {
   const terms = PAINTING_TERMS[condition] || PAINTING_TERMS.cloudy;
   const term = terms[Math.floor(Math.random() * terms.length)];
 
   try {
-    // NOTE: filtering for public-domain works client-side (below) instead of
-    // via a `query[term][...]` URL filter — that bracket-notation filter
-    // combined with a free-text `q=` search was unreliable against this API.
-    const fields = 'id,title,artist_display,date_display,image_id,is_public_domain';
-    const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(term)}&fields=${fields}&limit=40`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Art fetch failed: ${res.status}`);
+    const searchUrl = `${MET_BASE}/search?q=${encodeURIComponent(term)}&hasImages=true`;
+    const res = await fetch(searchUrl);
+    if (!res.ok) throw new Error(`Search failed: ${res.status}`);
     const data = await res.json();
 
-    const candidates = (data.data || []).filter(a => a.image_id && a.is_public_domain);
-    if (!candidates.length) throw new Error('No public-domain image results');
+    const ids = data.objectIDs;
+    if (!ids || !ids.length) throw new Error('No results for term: ' + term);
 
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    renderArt(pick.image_id, pick.title, pick.artist_display, pick.date_display, condition);
+    // hasImages=true can still include a few objects with no primaryImage,
+    // so try several random candidates before giving up
+    const shuffled = [...ids].sort(() => Math.random() - 0.5).slice(0, 8);
+    let found = false;
+
+    for (const id of shuffled) {
+      const objRes = await fetch(`${MET_BASE}/objects/${id}`);
+      if (!objRes.ok) continue;
+      const obj = await objRes.json();
+      if (obj.primaryImage) {
+        renderArt(obj.primaryImage, obj.title, obj.artistDisplayName, obj.objectDate, condition);
+        found = true;
+        break;
+      }
+    }
+    if (!found) throw new Error('No candidate had a usable image');
   } catch (err) {
     console.error('loadPainting failed:', err);
     showFallbackGradient(condition);
   }
 }
 
-// image_id -> real painting, with graceful degrade to a gradient if the image itself 404s
-function renderArt(imageId, title, artist, year, condition) {
-  const src = `https://www.artic.edu/iiif/2/${imageId}/full/843,/0/default.jpg`;
-
+// direct Met image URL -> render, with graceful degrade to a gradient if it 404s
+function renderArt(imageUrl, title, artist, year, condition) {
   const preload = new Image();
   preload.onload = () => {
-    artImg.src = src;
+    artImg.src = imageUrl;
     artImg.style.display = 'block';
     artBg.style.background = '#111';
     artImg.classList.add('loaded');
     titleEl.textContent = title || 'Untitled';
-    artistEl.textContent = (artist || 'Unknown artist').split('\n')[0];
+    artistEl.textContent = artist || 'Unknown artist';
     yearEl.textContent = year ? `(${year})` : '';
   };
   preload.onerror = () => {
-    console.error('Image failed to load:', src);
+    console.error('Image failed to load:', imageUrl);
     showFallbackGradient(condition);
   };
-  preload.src = src;
+  preload.src = imageUrl;
 }
 
 // pure-CSS fallback, cannot fail
