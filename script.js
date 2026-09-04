@@ -120,18 +120,22 @@ async function loadPainting(condition) {
   const term = terms[Math.floor(Math.random() * terms.length)];
 
   try {
-    const fields = 'id,title,artist_display,date_display,image_id';
-    const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(term)}&query[term][is_public_domain]=true&fields=${fields}&limit=40`;
+    // NOTE: filtering for public-domain works client-side (below) instead of
+    // via a `query[term][...]` URL filter — that bracket-notation filter
+    // combined with a free-text `q=` search was unreliable against this API.
+    const fields = 'id,title,artist_display,date_display,image_id,is_public_domain';
+    const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(term)}&fields=${fields}&limit=40`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error('Art fetch failed');
+    if (!res.ok) throw new Error(`Art fetch failed: ${res.status}`);
     const data = await res.json();
 
-    const candidates = (data.data || []).filter(a => a.image_id);
-    if (!candidates.length) throw new Error('No image results');
+    const candidates = (data.data || []).filter(a => a.image_id && a.is_public_domain);
+    if (!candidates.length) throw new Error('No public-domain image results');
 
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
     renderArt(pick.image_id, pick.title, pick.artist_display, pick.date_display, condition);
   } catch (err) {
+    console.error('loadPainting failed:', err);
     showFallbackGradient(condition);
   }
 }
@@ -150,7 +154,10 @@ function renderArt(imageId, title, artist, year, condition) {
     artistEl.textContent = (artist || 'Unknown artist').split('\n')[0];
     yearEl.textContent = year ? `(${year})` : '';
   };
-  preload.onerror = () => showFallbackGradient(condition);
+  preload.onerror = () => {
+    console.error('Image failed to load:', src);
+    showFallbackGradient(condition);
+  };
   preload.src = src;
 }
 
